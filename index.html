@@ -1,40 +1,47 @@
-<!-- index.html no GitHub Pages -->
+<!-- index.html LEVE -->
 <!DOCTYPE html>
 <html>
 <body>
 <canvas id="tela"></canvas>
 
 <script>
-// Pega room da URL
-const urlParams = new URLSearchParams(window.location.search);
-const roomId = urlParams.get('room');
+const canvas = document.getElementById('tela');
+const ctx = canvas.getContext('2d');
+const ws = new WebSocket('ws://localhost:8765');
 
-if (!roomId) {
-    document.body.innerHTML = '<h3>Acesso: ?room=ID_DO_ROOM</h3>';
-} else {
-    // Conecta P2P
-    const ws = new WebSocket(`ws://localhost:8765`);
-    const canvas = document.getElementById('tela');
-    const ctx = canvas.getContext('2d');
+// Buffer para reutilização de memória
+let imageBuffer = null;
 
-    ws.onopen = () => {
-        console.log(`Conectado P2P ao room: ${roomId}`);
-    };
+ws.onmessage = async (event) => {
+    const data = JSON.parse(event.data);
 
-    ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
+    if (data.type === 'frame_compressed') {
+        // Descomprime
+        const compressed = Uint8Array.from(atob(data.data), c => c.charCodeAt(0));
+        const decompressed = pako.inflate(compressed); // Usa pako.js para zlib
 
-        if (data.type === 'frame' && data.room === roomId) {
-            const img = new Image();
-            img.onload = () => {
-                canvas.width = data.width;
-                canvas.height = data.height;
-                ctx.drawImage(img, 0, 0);
-            };
-            img.src = 'data:image/jpeg;base64,' + data.frame;
-        }
-    };
-}
+        // Cria blob sem acumular memória
+        const blob = new Blob([decompressed], {type: 'image/jpeg'});
+        const url = URL.createObjectURL(blob);
+
+        const img = new Image();
+        img.onload = () => {
+            canvas.width = data.w;
+            canvas.height = data.h;
+            ctx.drawImage(img, 0, 0);
+
+            // Limpa memória
+            URL.revokeObjectURL(url);
+            img.src = '';
+        };
+        img.src = url;
+    }
+};
+
+// Usa pako.js para descompressão zlib
+const script = document.createElement('script');
+script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js';
+document.head.appendChild(script);
 </script>
 </body>
 </html>
