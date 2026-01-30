@@ -1,47 +1,41 @@
-<!-- index.html LEVE -->
+<!-- viewer.html CORRETO -->
 <!DOCTYPE html>
 <html>
 <body>
 <canvas id="tela"></canvas>
 
 <script>
+// Pega room da URL
+const urlParams = new URLSearchParams(window.location.search);
+const roomId = urlParams.get('room');
+
+// Conecta WebSocket
+const ws = new WebSocket('ws://localhost:8765');
 const canvas = document.getElementById('tela');
 const ctx = canvas.getContext('2d');
-const ws = new WebSocket('ws://localhost:8765');
 
-// Buffer para reutilização de memória
-let imageBuffer = null;
-
-ws.onmessage = async (event) => {
-    const data = JSON.parse(event.data);
-
-    if (data.type === 'frame_compressed') {
-        // Descomprime
-        const compressed = Uint8Array.from(atob(data.data), c => c.charCodeAt(0));
-        const decompressed = pako.inflate(compressed); // Usa pako.js para zlib
-
-        // Cria blob sem acumular memória
-        const blob = new Blob([decompressed], {type: 'image/jpeg'});
-        const url = URL.createObjectURL(blob);
-
-        const img = new Image();
-        img.onload = () => {
-            canvas.width = data.w;
-            canvas.height = data.h;
-            ctx.drawImage(img, 0, 0);
-
-            // Limpa memória
-            URL.revokeObjectURL(url);
-            img.src = '';
-        };
-        img.src = url;
-    }
+ws.onopen = () => {
+    // Envia configuração inicial
+    ws.send(JSON.stringify({
+        type: 'viewer',
+        room_id: roomId
+    }));
+    console.log("Conectado como viewer");
 };
 
-// Usa pako.js para descompressão zlib
-const script = document.createElement('script');
-script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js';
-document.head.appendChild(script);
+ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    
+    if (data.type === 'frame') {
+        const img = new Image();
+        img.onload = () => {
+            canvas.width = data.width;
+            canvas.height = data.height;
+            ctx.drawImage(img, 0, 0);
+        };
+        img.src = 'data:image/jpeg;base64,' + data.data;
+    }
+};
 </script>
 </body>
 </html>
