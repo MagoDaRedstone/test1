@@ -1,308 +1,40 @@
+<!-- index.html no GitHub Pages -->
 <!DOCTYPE html>
 <html>
-<head>
-    <title>Player Live P2P</title>
-    <style>
-        body { 
-            margin: 0; 
-            padding: 20px; 
-            background: #0a0a0a; 
-            color: white; 
-            font-family: Arial, sans-serif; 
-            text-align: center;
-        }
-        
-        #videoContainer {
-            margin: 20px auto;
-            max-width: 1280px;
-            position: relative;
-        }
-        
-        #videoCanvas {
-            border: 3px solid #ff0055;
-            border-radius: 10px;
-            background: #000;
-            width: 100%;
-            box-shadow: 0 0 30px rgba(255, 0, 85, 0.3);
-        }
-        
-        .status {
-            padding: 15px;
-            margin: 20px;
-            border-radius: 10px;
-            font-size: 18px;
-            font-weight: bold;
-            transition: all 0.3s;
-        }
-        
-        .connected {
-            background: linear-gradient(45deg, #00cc44, #00aa33);
-            animation: pulse 2s infinite;
-        }
-        
-        .disconnected {
-            background: linear-gradient(45deg, #ff3333, #cc0000);
-        }
-        
-        .waiting {
-            background: linear-gradient(45deg, #ffaa00, #ff8800);
-        }
-        
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.02); }
-            100% { transform: scale(1); }
-        }
-        
-        .stats {
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            margin: 20px;
-            font-size: 14px;
-        }
-        
-        .stat-box {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 10px 20px;
-            border-radius: 5px;
-            min-width: 120px;
-        }
-        
-        .controls {
-            margin: 30px;
-        }
-        
-        button {
-            padding: 12px 25px;
-            margin: 5px;
-            border: none;
-            border-radius: 5px;
-            background: #ff0055;
-            color: white;
-            font-size: 16px;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-        
-        button:hover {
-            background: #ff3377;
-            transform: translateY(-2px);
-        }
-        
-        h1 {
-            color: #ff0055;
-            text-shadow: 0 0 10px rgba(255, 0, 85, 0.5);
-        }
-    </style>
-</head>
 <body>
-    <h1>🔴 PLAYER LIVE P2P</h1>
-    
-    <div id="status" class="status waiting">
-        ⏳ Aguardando conexão do transmissor...
-    </div>
-    
-    <div class="stats">
-        <div class="stat-box">
-            <div>📡 Status</div>
-            <div id="connStatus">Desconectado</div>
-        </div>
-        <div class="stat-box">
-            <div>🎬 FPS</div>
-            <div id="fpsCounter">0</div>
-        </div>
-        <div class="stat-box">
-            <div>📊 Resolução</div>
-            <div id="resolution">0x0</div>
-        </div>
-        <div class="stat-box">
-            <div>⏱️ Latência</div>
-            <div id="latency">0ms</div>
-        </div>
-    </div>
-    
-    <div id="videoContainer">
-        <canvas id="videoCanvas"></canvas>
-    </div>
-    
-    <div class="controls">
-        <button onclick="takeScreenshot()">📸 Capturar Tela</button>
-        <button onclick="toggleFullscreen()">🖥️ Tela Cheia</button>
-        <button onclick="copyStreamInfo()">📋 Copiar Info</button>
-    </div>
-    
-    <script>
-        // Configuração do WebSocket P2P
-        const WS_PORT = 8765; // Porta que o transmissor usa
-        let ws = null;
-        let isConnected = false;
-        let frameCount = 0;
-        let lastFpsUpdate = Date.now();
-        let lastFrameTime = Date.now();
-        
-        // Elementos DOM
-        const canvas = document.getElementById('videoCanvas');
-        const ctx = canvas.getContext('2d');
-        const statusDiv = document.getElementById('status');
-        const connStatus = document.getElementById('connStatus');
-        const fpsCounter = document.getElementById('fpsCounter');
-        const resolution = document.getElementById('resolution');
-        const latency = document.getElementById('latency');
-        
-        // Inicializa WebSocket Server para receber conexões
-        function initWebSocketServer() {
-            try {
-                // Usa WebSocket sobre HTTPS (WSS) para Netlify/GitHub Pages
-                // O transmissor vai se conectar AQUI
-                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const wsUrl = `${protocol}//${window.location.host}/`;
-                
-                console.log('🔌 WebSocket Server URL:', wsUrl);
-                
-                // Em produção, você usaria um servidor WebSocket real
-                // Esta é uma versão simplificada para demonstração
-                
-                statusDiv.textContent = '✅ SERVIDOR P2P PRONTO';
-                statusDiv.className = 'status connected';
-                connStatus.textContent = 'Aguardando transmissor...';
-                connStatus.style.color = '#ffaa00';
-                
-                // Simula conexão P2P (em produção seria real)
-                simulateP2PConnection();
-                
-            } catch (error) {
-                console.error('Erro inicialização WebSocket:', error);
-                statusDiv.textContent = '❌ ERRO: ' + error.message;
-                statusDiv.className = 'status disconnected';
-            }
+<canvas id="tela"></canvas>
+
+<script>
+// Pega room da URL
+const urlParams = new URLSearchParams(window.location.search);
+const roomId = urlParams.get('room');
+
+if (!roomId) {
+    document.body.innerHTML = '<h3>Acesso: ?room=ID_DO_ROOM</h3>';
+} else {
+    // Conecta P2P
+    const ws = new WebSocket(`ws://localhost:8765`);
+    const canvas = document.getElementById('tela');
+    const ctx = canvas.getContext('2d');
+
+    ws.onopen = () => {
+        console.log(`Conectado P2P ao room: ${roomId}`);
+    };
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'frame' && data.room === roomId) {
+            const img = new Image();
+            img.onload = () => {
+                canvas.width = data.width;
+                canvas.height = data.height;
+                ctx.drawImage(img, 0, 0);
+            };
+            img.src = 'data:image/jpeg;base64,' + data.frame;
         }
-        
-        // Simula conexão P2P (substitua por WebSocket real)
-        function simulateP2PConnection() {
-            // Esta função simula a recepção de frames
-            // Em produção, você receberia frames reais do WebSocket
-            
-            // Cria um vídeo de teste
-            const testVideo = document.createElement('video');
-            testVideo.src = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-            testVideo.loop = true;
-            testVideo.muted = true;
-            testVideo.play();
-            
-            // Simula frames do vídeo
-            function drawTestFrame() {
-                if (!isConnected) return;
-                
-                try {
-                    // Desenha frame do vídeo de teste
-                    ctx.drawImage(testVideo, 0, 0, canvas.width, canvas.height);
-                    
-                    // Atualiza estatísticas
-                    updateStats();
-                    
-                    // Próximo frame
-                    requestAnimationFrame(drawTestFrame);
-                } catch (e) {
-                    console.error('Erro desenho:', e);
-                }
-            }
-            
-            // Simula conexão do transmissor após 2 segundos
-            setTimeout(() => {
-                isConnected = true;
-                canvas.width = 1280;
-                canvas.height = 720;
-                
-                statusDiv.textContent = '✅ CONECTADO - Recebendo stream P2P';
-                statusDiv.className = 'status connected';
-                connStatus.textContent = 'Conectado';
-                connStatus.style.color = '#00cc44';
-                resolution.textContent = `${canvas.width}x${canvas.height}`;
-                
-                // Inicia desenho
-                drawTestFrame();
-                
-            }, 2000);
-        }
-        
-        // Atualiza estatísticas
-        function updateStats() {
-            frameCount++;
-            const now = Date.now();
-            
-            // Atualiza FPS a cada segundo
-            if (now - lastFpsUpdate >= 1000) {
-                fpsCounter.textContent = frameCount;
-                frameCount = 0;
-                lastFpsUpdate = now;
-            }
-            
-            // Calcula latência
-            const frameLatency = now - lastFrameTime;
-            latency.textContent = `${frameLatency}ms`;
-            lastFrameTime = now;
-        }
-        
-        // Funções de controle
-        function takeScreenshot() {
-            if (canvas.width === 0) {
-                alert('Nenhum stream ativo!');
-                return;
-            }
-            
-            const link = document.createElement('a');
-            link.download = `screenshot_${Date.now()}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-            
-            // Feedback visual
-            const originalText = statusDiv.textContent;
-            statusDiv.textContent = '📸 Screenshot salvo!';
-            setTimeout(() => {
-                statusDiv.textContent = originalText;
-            }, 1500);
-        }
-        
-        function toggleFullscreen() {
-            if (!document.fullscreenElement) {
-                canvas.requestFullscreen().catch(err => {
-                    console.error('Erro fullscreen:', err);
-                });
-            } else {
-                document.exitFullscreen();
-            }
-        }
-        
-        function copyStreamInfo() {
-            const info = `🔴 Assistindo Live P2P\n📡 Status: ${connStatus.textContent}\n🎬 FPS: ${fpsCounter.textContent}\n📊 Resolução: ${resolution.textContent}\n🔗 URL: ${window.location.href}`;
-            
-            navigator.clipboard.writeText(info).then(() => {
-                const originalText = statusDiv.textContent;
-                statusDiv.textContent = '📋 Informações copiadas!';
-                setTimeout(() => {
-                    statusDiv.textContent = originalText;
-                }, 1500);
-            });
-        }
-        
-        // Event listeners
-        canvas.addEventListener('dblclick', toggleFullscreen);
-        
-        // Inicialização
-        window.addEventListener('load', () => {
-            console.log('🎬 Player P2P iniciado');
-            initWebSocketServer();
-            
-            // Informações para o transmissor
-            console.log('Para conectar, use este URL no transmissor:');
-            console.log(window.location.href);
-        });
-        
-        // Trata fechamento
-        window.addEventListener('beforeunload', () => {
-            if (ws) {
-                ws.close();
-            }
-        });
-    </script
+    };
+}
+</script>
+</body>
+</html>
